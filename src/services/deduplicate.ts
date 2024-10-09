@@ -18,7 +18,7 @@ type SimpleValue = Pick<Value, "id" | "policies">
  */
 export async function getExistingDuplicateValue(
   value: Value,
-  candidates: { id: number; policies: string[] }
+  candidates: Value[]
 ): Promise<Value | null> {
   try {
     const result = await genObj({

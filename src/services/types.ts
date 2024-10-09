@@ -7,7 +7,7 @@ type Value = {
   embedding?: number[]
 }
 
-/// Represents a context or a choice in which a value apply.
+/// Represents a context or a choice in which a value applies.
 type ChoiceType = {
   name: string
 }
