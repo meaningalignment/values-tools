@@ -2,8 +2,8 @@ import { embedMany, generateObject, generateText, type CoreMessage } from "ai"
 import { anthropic } from "@ai-sdk/anthropic"
 import { openai } from "@ai-sdk/openai"
 import { z, ZodSchema } from "zod"
-import { Cache } from "./cache"
 import { embed } from "ai"
+import { getValuesToolsConfig } from "../config"
 
 function getLanguageModel(model: string) {
   if (model.startsWith("claude")) {
@@ -42,32 +42,47 @@ function stringify(value: any) {
   }
 }
 
+/**
+ * Generates an object based on the provided prompt, data, and schema.
+ * @param {Object} options - The options for generating the object.
+ * @param {string} options.prompt - The system prompt for the AI model.
+ * @param {Record<string, any>} options.data - The data to be processed.
+ * @param {ZodSchema} options.schema - The Zod schema for validating the generated object.
+ * @param {string} [options.model] - The AI model to use (optional, defaults to config.defaultModel).
+ * @param {number} [options.temperature] - The temperature for the AI generation (optional, defaults to config.defaultTemperature).
+ * @param {boolean} [options.useCacheIfAvailable=true] - Whether to use cached results if available (optional).
+ * @returns {Promise<z.infer<T>>} A promise that resolves to the generated object.
+ */
 export async function genObj<T extends ZodSchema>({
   prompt,
   data,
   schema,
-  model = "claude-3-5-sonnet-20240620",
-  temperature = 0,
-  cache,
+  model,
+  temperature,
+  useCacheIfAvailable = true,
 }: {
   prompt: string
   data: Record<string, any>
   schema: T
   temperature?: number
   model?: string
-  cache?: Cache
+  useCacheIfAvailable?: boolean
 }): Promise<z.infer<T>> {
+  const config = getValuesToolsConfig()
   const renderedData = Object.entries(data)
     .map(([key, value]) => `# ${key}\n\n${stringify(value)}`)
     .join("\n\n")
 
-  if (cache) {
-    const cached = cache.getObj({
+  const finalModel = model || config.defaultModel
+  const finalTemperature = temperature ?? config.defaultTemperature
+
+  if (useCacheIfAvailable && config.cache) {
+    const cached = config.cache.getObj({
       prompt,
       data: renderedData,
       schema,
-      model,
-      temperature,
+      model: finalModel,
+      temperature: finalTemperature,
     })
     if (cached) {
       console.log("Cache hit!")
@@ -76,21 +91,21 @@ export async function genObj<T extends ZodSchema>({
   }
 
   const { object } = await generateObject({
-    model: getLanguageModel(model),
+    model: getLanguageModel(finalModel),
     schema,
     system: prompt,
     messages: [{ role: "user", content: renderedData }],
-    temperature,
+    temperature: finalTemperature,
     mode: "auto",
   })
 
-  if (cache) {
-    cache.setObj({
+  if (useCacheIfAvailable && config.cache) {
+    config.cache.setObj({
       prompt,
       data: renderedData,
       schema,
-      model,
-      temperature,
+      model: finalModel,
+      temperature: finalTemperature,
       value: object,
     })
   }
@@ -98,25 +113,39 @@ export async function genObj<T extends ZodSchema>({
   return object
 }
 
+/**
+ * Generates text based on the provided prompt and user message.
+ * @param {Object} options - The options for generating the text.
+ * @param {string} options.prompt - The system prompt for the AI model.
+ * @param {string} options.userMessage - The user's message to process.
+ * @param {string} [options.model] - The AI model to use (optional, defaults to config.defaultModel).
+ * @param {number} [options.temperature] - The temperature for the AI generation (optional, defaults to config.defaultTemperature).
+ * @param {boolean} [options.useCacheIfAvailable=true] - Whether to use cached results if available (optional).
+ * @returns {Promise<string>} A promise that resolves to the generated text.
+ */
 export async function genText({
   prompt,
   userMessage,
-  model = "claude-3-5-sonnet-20240620",
-  temperature = 0,
-  cache,
+  model,
+  temperature,
+  useCacheIfAvailable = true,
 }: {
   prompt: string
   userMessage: string
   model?: string
   temperature?: number
-  cache?: Cache
+  useCacheIfAvailable?: boolean
 }): Promise<string> {
-  if (cache) {
-    const cached = cache.getText({
+  const config = getValuesToolsConfig()
+  const finalModel = model || config.defaultModel
+  const finalTemperature = temperature ?? config.defaultTemperature
+
+  if (useCacheIfAvailable && config.cache) {
+    const cached = config.cache.getText({
       prompt,
       userMessage,
-      model,
-      temperature,
+      model: finalModel,
+      temperature: finalTemperature,
     })
     if (cached) {
       console.log("Cache hit!")
@@ -125,18 +154,18 @@ export async function genText({
   }
 
   const { text } = await generateText({
-    model: getLanguageModel(model),
+    model: getLanguageModel(finalModel),
     system: prompt,
     messages: [{ role: "user", content: userMessage }],
-    temperature,
+    temperature: finalTemperature,
   })
 
-  if (cache) {
-    cache.setText({
+  if (useCacheIfAvailable && config.cache) {
+    config.cache.setText({
       prompt,
       userMessage,
-      model,
-      temperature,
+      model: finalModel,
+      temperature: finalTemperature,
       value: text,
     })
   }
@@ -144,24 +173,38 @@ export async function genText({
   return text
 }
 
+/**
+ * Generates text based on a series of messages and an optional system prompt.
+ * @param {Object} options - The options for generating the text.
+ * @param {CoreMessage[]} options.messages - An array of messages to process.
+ * @param {string} [options.systemPrompt] - The system prompt for the AI model (optional).
+ * @param {string} [options.model] - The AI model to use (optional, defaults to config.defaultModel).
+ * @param {number} [options.temperature] - The temperature for the AI generation (optional, defaults to config.defaultTemperature).
+ * @param {boolean} [options.useCacheIfAvailable=true] - Whether to use cached results if available (optional).
+ * @returns {Promise<string>} A promise that resolves to the generated text.
+ */
 export async function genTextMessages({
   messages,
   systemPrompt,
-  model = "claude-3-5-sonnet-20240620",
-  temperature = 0,
-  cache,
+  model,
+  temperature,
+  useCacheIfAvailable = true,
 }: {
   messages: CoreMessage[]
   systemPrompt?: string
   model?: string
   temperature?: number
-  cache?: Cache
+  useCacheIfAvailable?: boolean
 }): Promise<string> {
-  if (cache) {
-    const cached = cache.getMessages({
+  const config = getValuesToolsConfig()
+  const finalModel = model || config.defaultModel
+  const finalTemperature = temperature ?? config.defaultTemperature
+
+  if (useCacheIfAvailable && config.cache) {
+    const cached = config.cache.getMessages({
       messages,
-      model,
-      temperature,
+      model: finalModel,
+      temperature: finalTemperature,
     })
     if (cached) {
       console.log("Cache hit!")
@@ -170,17 +213,17 @@ export async function genTextMessages({
   }
 
   const { text } = await generateText({
-    model: anthropic(model),
+    model: anthropic(finalModel),
     system: systemPrompt,
     messages,
-    temperature,
+    temperature: finalTemperature,
   })
 
-  if (cache) {
-    cache.setMessages({
+  if (useCacheIfAvailable && config.cache) {
+    config.cache.setMessages({
       messages,
-      model,
-      temperature,
+      model: finalModel,
+      temperature: finalTemperature,
       value: text,
     })
   }
@@ -188,19 +231,29 @@ export async function genTextMessages({
   return text
 }
 
-export async function embedOne(value: string): Promise<number[]> {
+/**
+ * Generates an embedding for a single string value.
+ * @param {string} text - The string to embed.
+ * @returns {Promise<number[]>} A promise that resolves to an array of numbers representing the embedding.
+ */
+export async function embedOne(text: string): Promise<number[]> {
   const result = await embed({
     model: openai.embedding("text-embedding-3-large", { dimensions: 1536 }),
-    value,
+    value: text,
   })
 
   return result.embedding
 }
 
-export async function embedSeveral(values: string[]): Promise<number[][]> {
+/**
+ * Generates embeddings for multiple string values.
+ * @param {string[]} texts - An array of strings to embed.
+ * @returns {Promise<number[][]>} A promise that resolves to an array of embedding arrays.
+ */
+export async function embedSeveral(texts: string[]): Promise<number[][]> {
   const result = await embedMany({
     model: openai.embedding("text-embedding-3-large", { dimensions: 1536 }),
-    values,
+    values: texts,
   })
 
   return result.embeddings

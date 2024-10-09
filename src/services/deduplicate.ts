@@ -15,6 +15,12 @@ const getFindExistingDuplicatePrompt = readMarkdownFile(
   "ai/prompts/find-existing-duplicate.md"
 )
 
+/**
+ * Finds an existing duplicate value from a list of candidates using an AI prompt.
+ * @param value - The value to find a duplicate for.
+ * @param candidates - An array of candidate values to compare against.
+ * @returns A Promise that resolves to the duplicate Value if found, or null if no duplicate is found.
+ */
 export async function findExistingDuplicateWithPrompt(
   value: Value,
   candidates: { id: number; policies: string[] }
@@ -33,6 +39,12 @@ export async function findExistingDuplicateWithPrompt(
   }
 }
 
+/**
+ * Deduplicates an array of values, optionally considering a choice type.
+ * @param values - An array of Value objects to deduplicate.
+ * @param choiceType - An optional string representing the choice type to consider during deduplication.
+ * @returns A Promise that resolves to an array of arrays, where each inner array represents a cluster of similar values.
+ */
 export async function deduplicateValues(
   values: Value[],
   choiceType?: string
@@ -94,6 +106,12 @@ export async function deduplicateValues(
   return valueClusters
 }
 
+/**
+ * Deduplicates an array of choice type strings.
+ * @param strings - An array of choice type strings to deduplicate.
+ * @param useDbscan - A boolean flag to determine whether to use DBSCAN clustering (default: true).
+ * @returns A Promise that resolves to an array of Promises, each resolving to a Map of deduplicated choice types.
+ */
 export async function deduplicateChoiceTypes(
   strings: string[],
   useDbscan = true
