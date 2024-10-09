@@ -25,5 +25,10 @@
   },
   "devDependencies": {
     "bun-types": "latest"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
   }
 }
