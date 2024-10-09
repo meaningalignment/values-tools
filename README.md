@@ -35,3 +35,7 @@ configureValuesTools({
 ## Caching
 
 The Values Tools module includes a caching mechanism to store and retrieve LLM results, which reduces API calls. The cache uses a SQLite database to store the data.
+
+## Prompt Generation
+
+The system creates TypeScript variables from Markdown files in the `prompts` folder. It uses a build script to do this automatically. This makes the prompts easy to use in the code.
