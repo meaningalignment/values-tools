@@ -1,8 +1,9 @@
 /// A value represented by a set of attention policies.
 type Value = {
   id: number
-  title: string
   policies: string[]
+  title?: string
+  description?: string
   embedding?: number[]
 }
 
