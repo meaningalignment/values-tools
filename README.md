@@ -34,4 +34,4 @@ configureValuesTools({
 
 ## Caching
 
-The Values Tools module includes a caching mechanism to store and retrieve generated results, which can help improve performance and reduce API calls. The cache uses a SQLite database to store the data.
+The Values Tools module includes a caching mechanism to store and retrieve LLM results, which reduces API calls. The cache uses a SQLite database to store the data.
