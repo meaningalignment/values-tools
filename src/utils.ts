@@ -1,7 +1,3 @@
-export const readMarkdownFile = async (filePath: string): Promise<string> => {
-  return await Bun.file(filePath).text()
-}
-
 export const cosineDistance = (vecA: number[], vecB: number[]) => {
   let dotProduct = 0.0
   let normA = 0.0

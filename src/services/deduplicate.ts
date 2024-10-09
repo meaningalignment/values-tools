@@ -1,19 +1,14 @@
 import { DBSCAN } from "density-clustering"
-import { embedOne, embedSeveral, genObj } from "./ai"
-import { cosineDistance, readMarkdownFile } from "../utils"
+import { embedSeveral, genObj } from "./ai"
+import { cosineDistance } from "../utils"
 import { z } from "zod"
+import {
+  deduplicateChoiceTypesPrompt,
+  deduplicateValuesPrompt,
+  findExistingDuplicatePrompt,
+} from "../prompts"
 
 type SimpleValue = Pick<Value, "id" | "policies">
-
-const getDedupeChoiceTypesPrompt = readMarkdownFile(
-  "ai/prompts/deduplicate-choice-types.md"
-)
-const getDedupeValuesPrompt = readMarkdownFile(
-  "ai/prompts/deduplicate-values.md"
-)
-const getFindExistingDuplicatePrompt = readMarkdownFile(
-  "ai/prompts/find-existing-duplicate.md"
-)
 
 /**
  * Finds an existing duplicate value from a list of candidates using an AI prompt.
@@ -21,14 +16,13 @@ const getFindExistingDuplicatePrompt = readMarkdownFile(
  * @param candidates - An array of candidate values to compare against.
  * @returns A Promise that resolves to the duplicate Value if found, or null if no duplicate is found.
  */
-export async function findExistingDuplicateWithPrompt(
+export async function getExistingDuplicateValue(
   value: Value,
   candidates: { id: number; policies: string[] }
 ): Promise<Value | null> {
   try {
-    const prompt = await getFindExistingDuplicatePrompt
     const result = await genObj({
-      prompt,
+      prompt: findExistingDuplicatePrompt,
       data: { value: value as SimpleValue, candidates },
       schema: z.object({ duplicateId: z.number().nullable() }),
     })
@@ -58,8 +52,6 @@ export async function deduplicateValues(
   //
   let valueClusters = []
   try {
-    const prompt = await getDedupeValuesPrompt
-
     // Include the choice type in the prompt if it is provided.
     const data: { values: typeof values; choiceType?: string } = { values }
     if (choiceType) {
@@ -67,7 +59,7 @@ export async function deduplicateValues(
     }
 
     const result = await genObj({
-      prompt,
+      prompt: deduplicateValuesPrompt,
       data,
       schema: z.object({
         clusters: z
@@ -108,12 +100,12 @@ export async function deduplicateValues(
 
 /**
  * Deduplicates an array of choice type strings.
- * @param strings - An array of choice type strings to deduplicate.
+ * @param choiceTypes - An array of choice type strings to deduplicate.
  * @param useDbscan - A boolean flag to determine whether to use DBSCAN clustering (default: true).
  * @returns A Promise that resolves to an array of Promises, each resolving to a Map of deduplicated choice types.
  */
 export async function deduplicateChoiceTypes(
-  strings: string[],
+  choiceTypes: string[],
   useDbscan = true
 ): Promise<Promise<Map<string, string[]>>[]> {
   //
@@ -123,9 +115,8 @@ export async function deduplicateChoiceTypes(
   async function dedupeChoiceTypesWithPrompt(
     choiceTypes: string[]
   ): Promise<string[][]> {
-    const prompt = await getDedupeChoiceTypesPrompt
     const result = await genObj({
-      prompt,
+      prompt: deduplicateChoiceTypesPrompt,
       data: { terms: choiceTypes },
       schema: z.object({
         synonymGroups: z
@@ -183,7 +174,7 @@ export async function deduplicateChoiceTypes(
     const dbscan = new DBSCAN()
     const dbscanClusters = dbscan
       .run(embeddings, 0.3, 5, cosineDistance)
-      .map((cluster) => cluster.map((i) => uniqueChoiceTypes[i]))
+      .map((cluster: any) => cluster.map((i: any) => uniqueChoiceTypes[i]))
 
     const clusteredValues = new Set(dbscanClusters.flat())
     const unclusteredValues = uniqueChoiceTypes.filter(
@@ -205,9 +196,9 @@ export async function deduplicateChoiceTypes(
   let clusters = []
 
   if (useDbscan) {
-    clusters = await clusterChoiceTypes(strings)
+    clusters = await clusterChoiceTypes(choiceTypes)
   } else {
-    clusters = strings.map((string) => [string])
+    clusters = choiceTypes.map((string) => [string])
   }
 
   // 2. Further deduplicate choice types with a prompt, for each cluster.
@@ -216,6 +207,6 @@ export async function deduplicateChoiceTypes(
   // 3. Ensure all contexts exist in the final list by including any missing choice types as their own cluster.
   return dedupedChoiceTypesPromises.map(async (promise) => {
     const dedupedMap = await promise
-    return ensureAllChoiceTypesExist(dedupedMap, strings)
+    return ensureAllChoiceTypesExist(dedupedMap, choiceTypes)
   })
 }
