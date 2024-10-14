@@ -6,7 +6,7 @@ Values Tools is a TypeScript library that provides a configurable interface for 
 
 - Articulate values
 - Deduplicate values
-- Deduplicate choice types
+- Deduplicate contexts
 
 ## Installation
 

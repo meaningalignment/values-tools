@@ -1,5 +1,5 @@
 /// A value represented by a set of attention policies.
-type Value = {
+export type Value = {
   id: number
   policies: string[]
   title?: string
@@ -7,7 +7,36 @@ type Value = {
   embedding?: number[]
 }
 
-/// Represents a context or a choice in which a value applies.
-type ChoiceType = {
-  name: string
+/// An edge between two values.
+export type Edge = {
+  fromId: number
+  toId: number
+  contextId: string
+}
+
+/// A moral graph.
+export interface MoralGraph {
+  values: MoralGraphValue[]
+  edges: MoralGraphEdge[]
+}
+
+export interface MoralGraphValue extends Value {
+  pageRank?: number
+}
+
+export interface MoralGraphEdge {
+  sourceValueId: number
+  wiserValueId: number
+  contexts: string[]
+  counts: {
+    markedWiser: number
+    markedNotWiser: number
+    markedLessWise: number
+    markedUnsure: number
+    impressions: number
+  }
+  summary: {
+    wiserLikelihood: number
+    entropy: number
+  }
 }

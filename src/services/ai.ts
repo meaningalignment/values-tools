@@ -230,31 +230,3 @@ export async function genTextMessages({
 
   return text
 }
-
-/**
- * Generates an embedding for a single string value.
- * @param {string} text - The string to embed.
- * @returns {Promise<number[]>} A promise that resolves to an array of numbers representing the embedding.
- */
-export async function embedOne(text: string): Promise<number[]> {
-  const result = await embed({
-    model: openai.embedding("text-embedding-3-large", { dimensions: 1536 }),
-    value: text,
-  })
-
-  return result.embedding
-}
-
-/**
- * Generates embeddings for multiple string values.
- * @param {string[]} texts - An array of strings to embed.
- * @returns {Promise<number[][]>} A promise that resolves to an array of embedding arrays.
- */
-export async function embedSeveral(texts: string[]): Promise<number[][]> {
-  const result = await embedMany({
-    model: openai.embedding("text-embedding-3-large", { dimensions: 1536 }),
-    values: texts,
-  })
-
-  return result.embeddings
-}

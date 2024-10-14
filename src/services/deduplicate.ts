@@ -1,13 +1,15 @@
 import { DBSCAN } from "density-clustering"
-import { embedSeveral, genObj } from "./ai"
+import { genObj } from "./ai"
+import { embedSeveral } from "./embedding"
 import { cosineDistance } from "../utils"
 import { z } from "zod"
 import {
-  deduplicateChoiceTypesPrompt,
+  deduplicateContextsPrompt,
   deduplicateValuesPrompt,
   findExistingDuplicatePrompt,
   bestValuesCardPrompt,
 } from "../prompts"
+import { Value } from "./types"
 
 type SimpleValue = Pick<Value, "id" | "policies">
 
@@ -35,90 +37,143 @@ export async function getExistingDuplicateValue(
 }
 
 /**
- * Deduplicates an array of values, optionally considering a choice type.
+ * Deduplicates an array of values, optionally considering a context.
  * @param values - An array of Value objects to deduplicate.
- * @param choiceType - An optional string representing the choice type to consider during deduplication.
+ * @param context - An optional string representing the context to consider during deduplication.
+ * @param useDbScan - A boolean flag to determine whether to use DBSCAN clustering (default: true).
  * @returns A Promise that resolves to an array of arrays, where each inner array represents a cluster of similar values.
  */
 export async function deduplicateValues(
   values: Value[],
-  choiceType?: string
+  context?: string | null,
+  useDbScan = true
 ): Promise<Value[][]> {
   if (values.length === 1) {
     return [[values[0]]]
   }
 
   //
-  // Cluster the values with a prompt.
+  // Functions
   //
-  let valueClusters = []
-  try {
-    // Include the choice type in the prompt if it is provided.
-    const data: { values: typeof values; choiceType?: string } = { values }
-    if (choiceType) {
-      data.choiceType = choiceType
-    }
 
-    const result = await genObj({
-      prompt: deduplicateValuesPrompt,
-      data,
-      schema: z.object({
-        clusters: z
-          .array(
-            z.array(
-              z
-                .number()
-                .int()
-                .min(0)
-                .max(values.length - 1)
+  async function dedupeValuesWithPrompt(cluster: Value[]): Promise<Value[][]> {
+    try {
+      const data: { values: typeof cluster; context?: string } = {
+        values: cluster,
+      }
+      if (context) {
+        data.context = context
+      }
+
+      const result = await genObj({
+        prompt: deduplicateValuesPrompt,
+        data,
+        schema: z.object({
+          clusters: z
+            .array(
+              z.object({
+                motivation: z
+                  .string()
+                  .describe(
+                    "A short motivation text for *why* the values in this cluster are all about the same source of meaning. Should not be longer than a short sentence or two."
+                  ),
+                values: z
+                  .array(z.number().int())
+                  .describe(
+                    "A list of ids referring to values that all are about the same source of meaning."
+                  ),
+              })
             )
-          )
-          .describe(
-            "A list of value clusters, where each cluster is a list of ids referring to values that all are about the same source of meaning."
-          ),
-      }),
-    })
+            .describe(
+              "A list of value clusters, each with a motivation and a list of value ids."
+            ),
+        }),
+      })
 
-    valueClusters = result.clusters.map((cluster) =>
-      cluster.map((index) => values[index])
-    )
-  } catch (error) {
-    console.error("Error in genDeduplicatePolicies:", error)
-    return [values]
-  }
-
-  // Include any value that was not clustered as its own cluster.
-  const allValueIds = new Set(valueClusters.flat().map((v) => v.id))
-  for (let i = 0; i < values.length; i++) {
-    if (!allValueIds.has(values[i].id)) {
-      valueClusters.push([values[i]])
+      return result.clusters.map((cluster) =>
+        cluster.values.map((id) => values.find((v) => v.id === id)!)
+      )
+    } catch (error) {
+      console.error("Error in dedupeValuesWithPrompt:", error)
+      return [cluster]
     }
   }
 
-  // Return the clustered values.
-  return valueClusters
+  function processValueClusters(
+    dbscanClusters: Value[][]
+  ): Promise<Value[][]>[] {
+    return dbscanClusters.map(dedupeValuesWithPrompt)
+  }
+
+  async function clusterValues(values: Value[]): Promise<Value[][]> {
+    const embeddings = values.map((value) => value.embedding)
+    const dbscan = new DBSCAN()
+    const dbscanClusters = dbscan
+      .run(embeddings, 0.3, 5, cosineDistance)
+      .map((cluster: number[]) => cluster.map((i) => values[i]))
+
+    const clusteredValues = new Set(dbscanClusters.flat().map((v) => v.id))
+    const unclusteredValues = values.filter((v) => !clusteredValues.has(v.id))
+    if (unclusteredValues.length > 0) {
+      dbscanClusters.push(unclusteredValues)
+    }
+
+    return dbscanClusters
+  }
+
+  function ensureAllValuesExist(
+    dedupedValues: Value[][],
+    originalValues: Value[]
+  ): Value[][] {
+    const allValueIds = new Set(dedupedValues.flat().map((v) => v.id))
+    for (const value of originalValues) {
+      if (!allValueIds.has(value.id)) {
+        dedupedValues.push([value])
+      }
+    }
+    return dedupedValues
+  }
+
+  //
+  // Deduplication process
+  //
+
+  // 1. Cluster values using DBSCAN, if enabled
+  let clusters: Value[][]
+  if (useDbScan) {
+    clusters = await clusterValues(values)
+  } else {
+    clusters = values.map((v) => [v])
+  }
+
+  // 2. Further deduplicate values with a prompt, for each cluster
+  const dedupedValuesPromises = processValueClusters(clusters)
+
+  // 3. Ensure all values exist in the final list
+  const dedupedValues = (await Promise.all(dedupedValuesPromises)).flat()
+  return ensureAllValuesExist(dedupedValues, values)
 }
 
 /**
- * Deduplicates an array of choice type strings.
- * @param choiceTypes - An array of choice type strings to deduplicate.
- * @param useDbscan - A boolean flag to determine whether to use DBSCAN clustering (default: true).
- * @returns A Promise that resolves to an array of Promises, each resolving to a Map of deduplicated choice types.
+ * Deduplicates an array of context strings.
+ * @param contexts - An array of context strings to deduplicate.
+ * @param useDbScan - A boolean flag to determine whether to use DBSCAN clustering (default: true).
+ * @returns A Promise that resolves to an array of Promises, each resolving to a Map of deduplicated contexts.
  */
-export async function deduplicateChoiceTypes(
-  choiceTypes: string[],
-  useDbscan = true
+export async function deduplicateContexts(
+  contexts: string[],
+  useDbScan = true
 ): Promise<Promise<Map<string, string[]>>[]> {
   //
   // Functions.
   //
 
-  async function dedupeChoiceTypesWithPrompt(
-    choiceTypes: string[]
+  async function dedupeContextsWithPrompt(
+    contexts: string[]
   ): Promise<string[][]> {
     const result = await genObj({
-      prompt: deduplicateChoiceTypesPrompt,
-      data: { terms: choiceTypes },
+      prompt: deduplicateContextsPrompt,
+      data: { terms: contexts },
       schema: z.object({
         synonymGroups: z
           .array(z.array(z.string()))
@@ -131,13 +186,13 @@ export async function deduplicateChoiceTypes(
     return result.synonymGroups
   }
 
-  function processChoiceTypeClusters(
-    dbscanClusters: string[][]
+  function processContextClusters(
+    dbScanClusters: string[][]
   ): Promise<Map<string, string[]>>[] {
-    const dedupedChoiceTypesPromises: Promise<Map<string, string[]>>[] = []
+    const dedupedContextsPromises: Promise<Map<string, string[]>>[] = []
 
-    for (const cluster of dbscanClusters) {
-      const clusterPromise = dedupeChoiceTypesWithPrompt(cluster).then(
+    for (const cluster of dbScanClusters) {
+      const clusterPromise = dedupeContextsWithPrompt(cluster).then(
         (deduplicatedCluster) => {
           const clusterMap = new Map<string, string[]>()
           for (const group of deduplicatedCluster) {
@@ -148,37 +203,35 @@ export async function deduplicateChoiceTypes(
         }
       )
 
-      dedupedChoiceTypesPromises.push(clusterPromise)
+      dedupedContextsPromises.push(clusterPromise)
     }
 
-    return dedupedChoiceTypesPromises
+    return dedupedContextsPromises
   }
 
-  function ensureAllChoiceTypesExist(
-    dedupedChoiceTypes: Map<string, string[]>,
-    uniqueChoiceTypes: string[]
+  function ensureAllContextsExist(
+    dedupedContexts: Map<string, string[]>,
+    uniqueContexts: string[]
   ): Map<string, string[]> {
-    for (const context of uniqueChoiceTypes) {
-      if (!Array.from(dedupedChoiceTypes.values()).flat().includes(context)) {
-        dedupedChoiceTypes.set(context, [context])
+    for (const context of uniqueContexts) {
+      if (!Array.from(dedupedContexts.values()).flat().includes(context)) {
+        dedupedContexts.set(context, [context])
       }
     }
-    return dedupedChoiceTypes
+    return dedupedContexts
   }
 
-  async function clusterChoiceTypes(
-    choiceTypes: string[]
-  ): Promise<string[][]> {
-    const uniqueChoiceTypes = Array.from(new Set(choiceTypes))
-    const embeddings = await embedSeveral(uniqueChoiceTypes)
+  async function clusterContexts(contexts: string[]): Promise<string[][]> {
+    const uniqueContexts = Array.from(new Set(contexts))
+    const embeddings = await embedSeveral(uniqueContexts)
 
     const dbscan = new DBSCAN()
     const dbscanClusters = dbscan
       .run(embeddings, 0.3, 5, cosineDistance)
-      .map((cluster: any) => cluster.map((i: any) => uniqueChoiceTypes[i]))
+      .map((cluster: any) => cluster.map((i: any) => uniqueContexts[i]))
 
     const clusteredValues = new Set(dbscanClusters.flat())
-    const unclusteredValues = uniqueChoiceTypes.filter(
+    const unclusteredValues = uniqueContexts.filter(
       (value) => !clusteredValues.has(value)
     )
 
@@ -193,22 +246,22 @@ export async function deduplicateChoiceTypes(
   // Deduplication process.
   //
 
-  // 1. Cluster choice types using DBSCAN, if enabled. If we are dealing with a large number of choice types, this can help to reduce the input tokens to the AI model.
-  let clusters = []
+  // 1. Cluster contexts using DBSCAN, if enabled. If we are dealing with a large number of contexts, this can help to reduce the input tokens to the AI model.
+  let clusters: string[][]
 
-  if (useDbscan) {
-    clusters = await clusterChoiceTypes(choiceTypes)
+  if (useDbScan) {
+    clusters = await clusterContexts(contexts)
   } else {
-    clusters = choiceTypes.map((string) => [string])
+    clusters = contexts.map((string) => [string])
   }
 
-  // 2. Further deduplicate choice types with a prompt, for each cluster.
-  const dedupedChoiceTypesPromises = processChoiceTypeClusters(clusters)
+  // 2. Further deduplicate contexts with a prompt, for each cluster.
+  const dedupedContextsPromises = processContextClusters(clusters)
 
-  // 3. Ensure all contexts exist in the final list by including any missing choice types as their own cluster.
-  return dedupedChoiceTypesPromises.map(async (promise) => {
+  // 3. Ensure all contexts exist in the final list by including any missing contexts as their own cluster.
+  return dedupedContextsPromises.map(async (promise) => {
     const dedupedMap = await promise
-    return ensureAllChoiceTypesExist(dedupedMap, choiceTypes)
+    return ensureAllContextsExist(dedupedMap, contexts)
   })
 }
 

@@ -1,4 +1,4 @@
-# Deduplicate Choice Types
+# Deduplicate Contexts
 
 You will be given a long list of terms.
 
