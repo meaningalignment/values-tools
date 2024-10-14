@@ -188,7 +188,7 @@ export async function summarizeGraph(
 
   // Cook them down.
   const cookedEdges = pairs.all().map((edge) => {
-    const contexts = [...new Set(edge.contexts)]
+    const contexts = Array.from(new Set(edge.contexts))
     const total =
       edge.counts.markedWiser +
       edge.counts.markedNotWiser +

@@ -11,8 +11,6 @@ import {
 } from "../prompts"
 import { Value } from "./types"
 
-type SimpleValue = Pick<Value, "id" | "policies">
-
 /**
  * Finds an existing duplicate value from a list of candidates using an AI prompt.
  * @param value - The value to find a duplicate for.

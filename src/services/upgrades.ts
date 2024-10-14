@@ -75,5 +75,5 @@ export async function generateUpgrades(values: Value[]): Promise<Upgrade[]> {
     schema: transitionsSchema,
   })
 
-  return result.transitions ?? []
+  return (result.transitions ?? []) as Upgrade[]
 }
