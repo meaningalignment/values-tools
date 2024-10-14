@@ -6,6 +6,7 @@ import {
   deduplicateChoiceTypesPrompt,
   deduplicateValuesPrompt,
   findExistingDuplicatePrompt,
+  bestValuesCardPrompt,
 } from "../prompts"
 
 type SimpleValue = Pick<Value, "id" | "policies">
@@ -209,4 +210,29 @@ export async function deduplicateChoiceTypes(
     const dedupedMap = await promise
     return ensureAllChoiceTypesExist(dedupedMap, choiceTypes)
   })
+}
+
+/**
+ * Selects a representative value from an array of Value objects.
+ *
+ * This function uses an AI prompt to determine the best representative value
+ * from a given array of values. If the input array contains only one value,
+ * that value is returned immediately.
+ *
+ * @param values - An array of Value objects to choose from.
+ * @returns A Promise that resolves to the selected representative Value object.
+ * @throws Will throw an error if the AI prompt fails or if no matching value is found.
+ */
+export async function getRepresentativeValue(values: Value[]): Promise<Value> {
+  if (values.length === 1) {
+    return values[0]
+  }
+
+  const response = await genObj({
+    prompt: bestValuesCardPrompt,
+    data: { Values: values.map((v) => ({ id: v.id, policies: v.policies })) },
+    schema: z.object({ best_values_card_id: z.number() }),
+  })
+
+  return values.find((v) => v.id === response.best_values_card_id) as Value
 }
