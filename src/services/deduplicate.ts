@@ -1,6 +1,6 @@
 import { DBSCAN } from "density-clustering"
 import { genObj } from "./ai"
-import { embedSeveral } from "./embedding"
+import { embedSeveral, embedValue } from "./embedding"
 import { cosineDistance } from "../utils"
 import { z } from "zod"
 import {
@@ -19,14 +19,14 @@ type SimpleValue = Pick<Value, "id" | "policies">
  * @param candidates - An array of candidate values to compare against.
  * @returns A Promise that resolves to the duplicate Value if found, or null if no duplicate is found.
  */
-export async function getExistingDuplicateValue(
-  value: Value,
-  candidates: Value[]
-): Promise<Value | null> {
+export async function getExistingDuplicateValue<
+  V extends Value,
+  C extends Value
+>(value: V, candidates: C[]): Promise<C | null> {
   try {
     const result = await genObj({
       prompt: findExistingDuplicatePrompt,
-      data: { value: value as SimpleValue, candidates },
+      data: { value: { id: value.id, policies: value.policies }, candidates },
       schema: z.object({ duplicateId: z.number().nullable() }),
     })
     return result.duplicateId === null ? null : candidates[result.duplicateId]
@@ -43,11 +43,11 @@ export async function getExistingDuplicateValue(
  * @param useDbScan - A boolean flag to determine whether to use DBSCAN clustering (default: true).
  * @returns A Promise that resolves to an array of arrays, where each inner array represents a cluster of similar values.
  */
-export async function deduplicateValues(
-  values: Value[],
+export async function deduplicateValues<V extends Value>(
+  values: V[],
   context?: string | null,
   useDbScan = true
-): Promise<Value[][]> {
+): Promise<V[][]> {
   if (values.length === 1) {
     return [[values[0]]]
   }
@@ -56,7 +56,7 @@ export async function deduplicateValues(
   // Functions
   //
 
-  async function dedupeValuesWithPrompt(cluster: Value[]): Promise<Value[][]> {
+  async function dedupeValuesWithPrompt(cluster: V[]): Promise<V[][]> {
     try {
       const data: { values: typeof cluster; context?: string } = {
         values: cluster,
@@ -99,18 +99,24 @@ export async function deduplicateValues(
     }
   }
 
-  function processValueClusters(
-    dbscanClusters: Value[][]
-  ): Promise<Value[][]>[] {
+  function processValueClusters(dbscanClusters: V[][]): Promise<V[][]>[] {
     return dbscanClusters.map(dedupeValuesWithPrompt)
   }
 
-  async function clusterValues(values: Value[]): Promise<Value[][]> {
-    const embeddings = values.map((value) => value.embedding)
+  async function clusterValues(values: V[]): Promise<V[][]> {
+    const embeddings = await Promise.all(
+      values.map((value) => {
+        if (value.embedding) {
+          return value.embedding
+        }
+
+        return embedValue(value)
+      })
+    )
     const dbscan = new DBSCAN()
     const dbscanClusters = dbscan
       .run(embeddings, 0.3, 5, cosineDistance)
-      .map((cluster: number[]) => cluster.map((i) => values[i]))
+      .map((cluster: number[]) => cluster.map((i) => values[i])) as V[][]
 
     const clusteredValues = new Set(dbscanClusters.flat().map((v) => v.id))
     const unclusteredValues = values.filter((v) => !clusteredValues.has(v.id))
@@ -122,9 +128,9 @@ export async function deduplicateValues(
   }
 
   function ensureAllValuesExist(
-    dedupedValues: Value[][],
-    originalValues: Value[]
-  ): Value[][] {
+    dedupedValues: V[][],
+    originalValues: V[]
+  ): V[][] {
     const allValueIds = new Set(dedupedValues.flat().map((v) => v.id))
     for (const value of originalValues) {
       if (!allValueIds.has(value.id)) {
@@ -139,7 +145,7 @@ export async function deduplicateValues(
   //
 
   // 1. Cluster values using DBSCAN, if enabled
-  let clusters: Value[][]
+  let clusters: V[][]
   if (useDbScan) {
     clusters = await clusterValues(values)
   } else {
@@ -276,16 +282,18 @@ export async function deduplicateContexts(
  * @returns A Promise that resolves to the selected representative Value object.
  * @throws Will throw an error if the AI prompt fails or if no matching value is found.
  */
-export async function getRepresentativeValue(values: Value[]): Promise<Value> {
+export async function getRepresentativeValue<V extends Value>(
+  values: V[]
+): Promise<V> {
   if (values.length === 1) {
     return values[0]
   }
 
   const response = await genObj({
     prompt: bestValuesCardPrompt,
-    data: { Values: values.map((v) => ({ id: v.id, policies: v.policies })) },
+    data: { values: values.map((v) => ({ id: v.id, policies: v.policies })) },
     schema: z.object({ best_values_card_id: z.number() }),
   })
 
-  return values.find((v) => v.id === response.best_values_card_id) as Value
+  return values.find((v) => v.id === response.best_values_card_id)!
 }
