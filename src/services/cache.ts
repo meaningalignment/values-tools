@@ -1,14 +1,99 @@
-import { Database } from "bun:sqlite"
 import { ZodSchema } from "zod"
 import { zodToJsonSchema } from "zod-to-json-schema"
-import { CryptoHasher } from "bun"
+
+interface DatabaseLike {
+  query(sql: string): {
+    run(params?: any): Promise<void>
+    get(params?: any): Promise<any>
+  }
+}
+
+interface HasherLike {
+  update(data: string): HasherLike
+  digest(encoding: "hex"): string
+}
+
+let Database: new (path: string, options?: any) => DatabaseLike
+let Hasher: new (algorithm: string) => HasherLike
+
+if (typeof Bun !== "undefined") {
+  // Running in Bun
+  import("bun:sqlite").then((bunSqlite) => {
+    Database = class BunDatabase implements DatabaseLike {
+      private db: any
+      constructor(path: string, options?: any) {
+        this.db = new bunSqlite.Database(path, options)
+      }
+      query(sql: string) {
+        return {
+          run: (params?: any): Promise<void> => {
+            return Promise.resolve(this.db.query(sql, params))
+          },
+          get: (params?: any): Promise<any> => {
+            return Promise.resolve(this.db.query(sql, params).get())
+          },
+        }
+      }
+    }
+  })
+  import("bun").then((bun) => {
+    Hasher = bun.CryptoHasher
+  })
+} else {
+  // Running in Node.js
+  import("sqlite3").then((sqlite3) => {
+    import("crypto").then((crypto) => {
+      Database = class NodeDatabase implements DatabaseLike {
+        private db: any
+        constructor(path: string, options?: any) {
+          this.db = new sqlite3.Database(path, options)
+        }
+        query(sql: string) {
+          return {
+            run: (params?: any): Promise<void> => {
+              return new Promise((resolve, reject) => {
+                this.db.run(sql, params, function (err: Error | null) {
+                  if (err) reject(err)
+                  else resolve()
+                })
+              })
+            },
+            get: (params?: any): Promise<any> => {
+              return new Promise((resolve, reject) => {
+                this.db.get(sql, params, (err: Error | null, row: any) => {
+                  if (err) reject(err)
+                  else resolve(row)
+                })
+              })
+            },
+          }
+        }
+      }
+
+      Hasher = class NodeHasher implements HasherLike {
+        private hasher: any
+        constructor(algorithm: string) {
+          this.hasher = crypto.createHash(algorithm)
+        }
+        update(data: string): HasherLike {
+          this.hasher.update(data)
+          return this
+        }
+        digest(encoding: "hex"): string {
+          return this.hasher.digest(encoding)
+        }
+      }
+    })
+  })
+}
 
 /**
  * A cache service for storing and retrieving generated results with a SQLite database.
+ * This class is designed to work in both Bun and Node.js environments.
  */
 export class Cache {
-  private db: Database
-  private hasher: CryptoHasher
+  private db: DatabaseLike
+  private hasher: HasherLike
 
   /**
    * Creates a new cache instance.
@@ -16,24 +101,40 @@ export class Cache {
    */
   constructor(path: string = "cache.sqlite") {
     this.db = new Database(path, { create: true })
-    this.hasher = new Bun.CryptoHasher("md5")
+    this.hasher = new Hasher("md5")
     this.initializeDatabase()
   }
 
-  private initializeDatabase() {
-    this.db
+  /**
+   * Initializes the database by creating the cache table if it doesn't exist.
+   * @private
+   */
+  private async initializeDatabase(): Promise<void> {
+    await this.db
       .query(
         "CREATE TABLE IF NOT EXISTS cache (key TEXT PRIMARY KEY, value TEXT)"
       )
       .run()
   }
 
+  /**
+   * Generates a cache key based on the provided data.
+   * @private
+   * @param {any} data - The data to generate the key from.
+   * @returns {string} The generated cache key.
+   */
   private genCacheKey(data: any): string {
     return this.hasher.update(JSON.stringify(data)).digest("hex")
   }
 
-  private setCache(key: string, value: any) {
-    this.db
+  /**
+   * Sets a value in the cache.
+   * @private
+   * @param {string} key - The cache key.
+   * @param {any} value - The value to store.
+   */
+  private async setCache(key: string, value: any): Promise<void> {
+    await this.db
       .query("INSERT OR REPLACE INTO cache (key, value) VALUES ($key, $value)")
       .run({
         $key: key,
@@ -41,10 +142,16 @@ export class Cache {
       })
   }
 
-  private getCache(key: string) {
-    const row = this.db
+  /**
+   * Retrieves a value from the cache.
+   * @private
+   * @param {string} key - The cache key.
+   * @returns {Promise<any | undefined>} The cached value if found, otherwise undefined.
+   */
+  private async getCache(key: string): Promise<any | undefined> {
+    const row = (await this.db
       .query("SELECT * FROM cache WHERE key = $key")
-      .get({ $key: key }) as { key: string; value: string } | undefined
+      .get({ $key: key })) as { key: string; value: string } | undefined
     return row ? JSON.parse(row.value) : undefined
   }
 
@@ -56,9 +163,9 @@ export class Cache {
    * @param {ZodSchema} params.schema - The Zod schema for validating the object.
    * @param {string} params.model - The model used for generating the object.
    * @param {number} params.temperature - The temperature setting used for generation.
-   * @returns {any | undefined} The cached object if found, otherwise undefined.
+   * @returns {Promise<any | undefined>} The cached object if found, otherwise undefined.
    */
-  getObj({
+  async getObj({
     prompt,
     data,
     schema,
@@ -70,7 +177,7 @@ export class Cache {
     schema: ZodSchema
     model: string
     temperature: number
-  }) {
+  }): Promise<any | undefined> {
     const jsonSchema = zodToJsonSchema(schema)
     const key = this.genCacheKey({
       prompt,
@@ -79,7 +186,7 @@ export class Cache {
       model,
       temperature,
     })
-    return this.getCache(key)
+    return await this.getCache(key)
   }
 
   /**
@@ -92,7 +199,7 @@ export class Cache {
    * @param {number} params.temperature - The temperature setting used for generation.
    * @param {any} params.value - The object to be stored in the cache.
    */
-  setObj({
+  async setObj({
     prompt,
     data,
     schema,
@@ -106,7 +213,7 @@ export class Cache {
     model: string
     temperature: number
     value: any
-  }) {
+  }): Promise<void> {
     const jsonSchema = zodToJsonSchema(schema)
     const key = this.genCacheKey({
       prompt,
@@ -115,7 +222,7 @@ export class Cache {
       model,
       temperature,
     })
-    this.setCache(key, value)
+    await this.setCache(key, value)
   }
 
   /**
@@ -125,9 +232,9 @@ export class Cache {
    * @param {string} params.userMessage - The user message associated with the text.
    * @param {string} params.model - The model used for generating the text.
    * @param {number} params.temperature - The temperature setting used for generation.
-   * @returns {string | undefined} The cached text if found, otherwise undefined.
+   * @returns {Promise<string | undefined>} The cached text if found, otherwise undefined.
    */
-  getText({
+  async getText({
     prompt,
     userMessage,
     model,
@@ -137,14 +244,14 @@ export class Cache {
     userMessage: string
     model: string
     temperature: number
-  }) {
+  }): Promise<string | undefined> {
     const key = this.genCacheKey({
       prompt,
       userMessage,
       model,
       temperature,
     })
-    return this.getCache(key)
+    return await this.getCache(key)
   }
 
   /**
@@ -156,7 +263,7 @@ export class Cache {
    * @param {number} params.temperature - The temperature setting used for generation.
    * @param {string} params.value - The text to be stored in the cache.
    */
-  setText({
+  async setText({
     prompt,
     userMessage,
     model,
@@ -168,14 +275,14 @@ export class Cache {
     model: string
     temperature: number
     value: string
-  }) {
+  }): Promise<void> {
     const key = this.genCacheKey({
       prompt,
       userMessage,
       model,
       temperature,
     })
-    this.setCache(key, value)
+    await this.setCache(key, value)
   }
 
   /**
@@ -184,9 +291,9 @@ export class Cache {
    * @param {Array<{content: string | any}>} params.messages - The messages used for generation.
    * @param {string} params.model - The model used for generating the messages.
    * @param {number} params.temperature - The temperature setting used for generation.
-   * @returns {any | undefined} The cached messages if found, otherwise undefined.
+   * @returns {Promise<any | undefined>} The cached messages if found, otherwise undefined.
    */
-  getMessages({
+  async getMessages({
     messages,
     model,
     temperature,
@@ -194,13 +301,13 @@ export class Cache {
     messages: { content: string | any }[]
     model: string
     temperature: number
-  }) {
+  }): Promise<any | undefined> {
     const key = this.genCacheKey({
       messages,
       model,
       temperature,
     })
-    return this.getCache(key)
+    return await this.getCache(key)
   }
 
   /**
@@ -209,9 +316,9 @@ export class Cache {
    * @param {Array<{content: string | any}>} params.messages - The messages used for generation.
    * @param {string} params.model - The model used for generating the messages.
    * @param {number} params.temperature - The temperature setting used for generation.
-   * @param {string} params.value - The messages to be stored in the cache.
+   * @param {any} params.value - The messages to be stored in the cache.
    */
-  setMessages({
+  async setMessages({
     messages,
     model,
     temperature,
@@ -220,13 +327,13 @@ export class Cache {
     messages: { content: string | any }[]
     model: string
     temperature: number
-    value: string
-  }) {
+    value: any
+  }): Promise<void> {
     const key = this.genCacheKey({
       messages,
       model,
       temperature,
     })
-    this.setCache(key, value)
+    await this.setCache(key, value)
   }
 }

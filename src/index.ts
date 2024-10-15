@@ -7,7 +7,8 @@ export {
   getExistingDuplicateValue,
   getRepresentativeValue,
 } from "./services/deduplicate"
-export { generateUpgrades, Upgrade } from "./services/upgrades"
+export { generateUpgrades, type Upgrade } from "./services/upgrades"
 export { embedValue, embedOne, embedSeveral } from "./services/embedding"
 export { generateContexts } from "./services/contexts"
 export { summarizeGraph } from "./services/moral-graph"
+export { type MoralGraph } from "./services/types"
