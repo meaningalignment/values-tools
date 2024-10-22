@@ -40,3 +40,16 @@ export interface MoralGraphEdge {
     entropy: number
   }
 }
+
+export interface Upgrade {
+  a_id: number
+  b_id: number
+  a_was_really_about: string
+  clarification: string
+  mapping: {
+    a: string
+    rationale: string
+  }[]
+  story: string
+  likelihood_score: string
+}

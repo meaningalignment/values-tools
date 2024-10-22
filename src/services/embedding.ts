@@ -1,6 +1,6 @@
 import { openai } from "@ai-sdk/openai"
 import { embed, embedMany } from "ai"
-import { Value } from "./types"
+import { Value } from "../types"
 
 type Embedding = number[] & { length: 1536 }
 

@@ -1,4 +1,4 @@
-import { MoralGraphEdge, MoralGraph, MoralGraphValue, Edge } from "./types"
+import { MoralGraphEdge, MoralGraph, MoralGraphValue, Edge } from "../types"
 
 /**
  * Calculates the entropy of a set of responses.
@@ -153,6 +153,7 @@ export interface Options {
   includeAllEdges?: boolean
   includePageRank?: boolean
   includeContexts?: boolean
+  markedWiserThreshold?: number
 }
 
 /**
@@ -205,7 +206,8 @@ export async function summarizeGraph(
     if (!edge.counts.markedWiser) return false
     if (edge.summary.wiserLikelihood < 0.33) return false
     if (edge.summary.entropy > 1.69) return false
-    if (edge.counts.markedWiser < 2) return false
+    if (edge.counts.markedWiser < (options.markedWiserThreshold ?? 2))
+      return false
     return true
   })
 

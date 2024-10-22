@@ -9,7 +9,7 @@ import {
   findExistingDuplicatePrompt,
   bestValuesCardPrompt,
 } from "../prompts"
-import { Value } from "./types"
+import { Value } from "../types"
 
 /**
  * Finds an existing duplicate value from a list of candidates using an AI prompt.

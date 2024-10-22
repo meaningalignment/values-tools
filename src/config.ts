@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { Cache } from "./services/cache"
+import { PromptCache } from "./services/cache"
 
 /**
  * Configuration for the Values Tools module.
@@ -16,7 +16,7 @@ import { Cache } from "./services/cache"
 export const ConfigSchema = z.object({
   defaultModel: z.string().default("claude-3-5-sonnet-20240620"),
   defaultTemperature: z.number().min(0).max(1).default(0),
-  cache: z.instanceof(Cache).optional(),
+  cache: z.instanceof(PromptCache).optional(),
 })
 
 export type Config = z.infer<typeof ConfigSchema>
