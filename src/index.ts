@@ -2,15 +2,16 @@ export { configureValuesTools, getValuesToolsConfig } from "./config"
 export { genObj, genText, genTextMessages } from "./services/ai"
 export { PromptCache } from "./services/cache"
 export {
-  deduplicateValues,
-  deduplicateContexts,
+  getExistingDuplicateContext,
   getExistingDuplicateValue,
   getRepresentativeValue,
+  deduplicateContexts,
+  deduplicateValues,
 } from "./services/deduplicate"
 export {
-  generateUpgrades,
   generateValueChoiceType,
   generateValueContext,
+  generateUpgrades,
 } from "./services/generate"
 export { embedValue, embedOne, embedSeveral } from "./services/embedding"
 export { summarizeGraph } from "./services/moral-graph"

@@ -29,22 +29,45 @@ export async function getExistingDuplicateValue<
     })
     return result.duplicateId === null ? null : candidates[result.duplicateId]
   } catch (error) {
-    console.error("Error in findExistingDuplicate:", error)
+    console.error("Error:", error)
     return null
   }
+}
+
+/**
+ * Finds an existing duplicate context from a list of candidates using an AI prompt.
+ * @param context - The context string to find a duplicate for.
+ * @param candidates - An array of candidate context strings to compare against.
+ * @returns A Promise that resolves to the duplicate context string if found, or null if no duplicate is found.
+ */
+export async function getExistingDuplicateContext(
+  context: string,
+  candidates: string[]
+): Promise<string | null> {
+  const result = await genObj({
+    prompt: findExistingDuplicatePrompt,
+    data: { context, candidates },
+    schema: z.object({ duplicate: z.string().nullable() }),
+  })
+
+  if (result.duplicate && candidates.includes(result.duplicate)) {
+    return result.duplicate
+  }
+
+  return null
 }
 
 /**
  * Deduplicates an array of values, optionally considering a context.
  * @param values - An array of Value objects to deduplicate.
  * @param context - An optional string representing the context to consider during deduplication.
- * @param useDbScan - A boolean flag to determine whether to use DBSCAN clustering (default: true).
+ * @param useDbScan - A boolean flag to determine whether to use DBSCAN clustering (default: false).
  * @returns A Promise that resolves to an array of arrays, where each inner array represents a cluster of similar values.
  */
 export async function deduplicateValues<V extends Value>(
   values: V[],
   context?: string | null,
-  useDbScan = true
+  useDbScan = false
 ): Promise<V[][]> {
   if (values.length === 1) {
     return [[values[0]]]
@@ -147,7 +170,7 @@ export async function deduplicateValues<V extends Value>(
   if (useDbScan) {
     clusters = await clusterValues(values)
   } else {
-    clusters = values.map((v) => [v])
+    clusters = [values]
   }
 
   // 2. Further deduplicate values with a prompt, for each cluster
@@ -161,13 +184,13 @@ export async function deduplicateValues<V extends Value>(
 /**
  * Deduplicates an array of context strings.
  * @param contexts - An array of context strings to deduplicate.
- * @param useDbScan - A boolean flag to determine whether to use DBSCAN clustering (default: true).
+ * @param useDbScan - A boolean flag to determine whether to use DBSCAN clustering (default: false).
  * @returns A Promise that resolves to an array of Promises, each resolving to a Map of deduplicated contexts.
  */
 export async function deduplicateContexts(
   contexts: string[],
-  useDbScan = true
-): Promise<Promise<Map<string, string[]>>[]> {
+  useDbScan = false
+): Promise<string[][]> {
   //
   // Functions.
   //
@@ -192,37 +215,19 @@ export async function deduplicateContexts(
 
   function processContextClusters(
     dbScanClusters: string[][]
-  ): Promise<Map<string, string[]>>[] {
-    const dedupedContextsPromises: Promise<Map<string, string[]>>[] = []
-
-    for (const cluster of dbScanClusters) {
-      const clusterPromise = dedupeContextsWithPrompt(cluster).then(
-        (deduplicatedCluster) => {
-          const clusterMap = new Map<string, string[]>()
-          for (const group of deduplicatedCluster) {
-            const representative = group[group.length - 1]
-            clusterMap.set(representative, group)
-          }
-          return clusterMap
-        }
-      )
-
-      dedupedContextsPromises.push(clusterPromise)
-    }
-
-    return dedupedContextsPromises
+  ): Promise<string[][]>[] {
+    return dbScanClusters.map(dedupeContextsWithPrompt)
   }
 
   function ensureAllContextsExist(
-    dedupedContexts: Map<string, string[]>,
+    dedupedContexts: string[][],
     uniqueContexts: string[]
-  ): Map<string, string[]> {
-    for (const context of uniqueContexts) {
-      if (!Array.from(dedupedContexts.values()).flat().includes(context)) {
-        dedupedContexts.set(context, [context])
-      }
-    }
-    return dedupedContexts
+  ): string[][] {
+    const allContexts = new Set(dedupedContexts.flat())
+    const missingContexts = uniqueContexts.filter(
+      (context) => !allContexts.has(context)
+    )
+    return [...dedupedContexts, ...missingContexts.map((context) => [context])]
   }
 
   async function clusterContexts(contexts: string[]): Promise<string[][]> {
@@ -256,17 +261,15 @@ export async function deduplicateContexts(
   if (useDbScan) {
     clusters = await clusterContexts(contexts)
   } else {
-    clusters = contexts.map((string) => [string])
+    clusters = [contexts]
   }
 
   // 2. Further deduplicate contexts with a prompt, for each cluster.
   const dedupedContextsPromises = processContextClusters(clusters)
 
-  // 3. Ensure all contexts exist in the final list by including any missing contexts as their own cluster.
-  return dedupedContextsPromises.map(async (promise) => {
-    const dedupedMap = await promise
-    return ensureAllContextsExist(dedupedMap, contexts)
-  })
+  // 3. Combine results and ensure all contexts exist
+  const dedupedContexts = (await Promise.all(dedupedContextsPromises)).flat()
+  return ensureAllContextsExist(dedupedContexts, contexts)
 }
 
 /**
