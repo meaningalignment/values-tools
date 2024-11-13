@@ -1,13 +1,14 @@
 import { DBSCAN } from "density-clustering"
 import { genObj } from "./ai"
-import { embedSeveral, embedValue } from "./embedding"
+import { embedTexts, embedValue } from "./embedding"
 import { cosineDistance } from "../utils"
 import { z } from "zod"
 import {
   deduplicateContextsPrompt,
   deduplicateValuesPrompt,
-  findExistingDuplicatePrompt,
   bestValuesCardPrompt,
+  findExistingDuplicateContextPrompt,
+  findExistingDuplicateValuePrompt,
 } from "../prompts"
 import { Value } from "../types"
 
@@ -23,7 +24,7 @@ export async function getExistingDuplicateValue<
 >(value: V, candidates: C[]): Promise<C | null> {
   try {
     const result = await genObj({
-      prompt: findExistingDuplicatePrompt,
+      prompt: findExistingDuplicateValuePrompt,
       data: { value: { id: value.id, policies: value.policies }, candidates },
       schema: z.object({ duplicateId: z.number().nullable() }),
     })
@@ -45,7 +46,7 @@ export async function getExistingDuplicateContext(
   candidates: string[]
 ): Promise<string | null> {
   const result = await genObj({
-    prompt: findExistingDuplicatePrompt,
+    prompt: findExistingDuplicateContextPrompt,
     data: { context, candidates },
     schema: z.object({ duplicate: z.string().nullable() }),
   })
@@ -232,7 +233,7 @@ export async function deduplicateContexts(
 
   async function clusterContexts(contexts: string[]): Promise<string[][]> {
     const uniqueContexts = Array.from(new Set(contexts))
-    const embeddings = await embedSeveral(uniqueContexts)
+    const embeddings = await embedTexts(uniqueContexts)
 
     const dbscan = new DBSCAN()
     const dbscanClusters = dbscan

@@ -10,7 +10,7 @@ type Embedding = number[] & { length: 1536 }
  * @returns {Promise<Embedding>} A promise that resolves to an array of numbers representing the embedding.
  */
 export async function embedValue(value: Value): Promise<Embedding> {
-  return embedOne(value.policies.sort().join("\n"))
+  return embedText(value.policies.sort().join("\n"))
 }
 
 /**
@@ -18,7 +18,7 @@ export async function embedValue(value: Value): Promise<Embedding> {
  * @param {string} text - The string to embed.
  * @returns {Promise<Embedding>} A promise that resolves to an array of numbers representing the embedding.
  */
-export async function embedOne(text: string): Promise<Embedding> {
+export async function embedText(text: string): Promise<Embedding> {
   const result = await embed({
     model: openai.embedding("text-embedding-3-large", { dimensions: 1536 }),
     value: text,
@@ -32,7 +32,7 @@ export async function embedOne(text: string): Promise<Embedding> {
  * @param {string[]} texts - An array of strings to embed.
  * @returns {Promise<Embedding[]>} A promise that resolves to an array of embedding arrays.
  */
-export async function embedSeveral(texts: string[]): Promise<number[][]> {
+export async function embedTexts(texts: string[]): Promise<number[][]> {
   const result = await embedMany({
     model: openai.embedding("text-embedding-3-large", { dimensions: 1536 }),
     values: texts,

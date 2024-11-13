@@ -13,6 +13,6 @@ export {
   generateValueContext,
   generateUpgrades,
 } from "./services/generate"
-export { embedValue, embedOne, embedSeveral } from "./services/embedding"
+export { embedValue, embedText, embedTexts } from "./services/embedding"
 export { summarizeGraph } from "./services/moral-graph"
 export { type MoralGraph, type Upgrade } from "./types"

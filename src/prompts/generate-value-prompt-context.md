@@ -12,7 +12,7 @@ Each attention policy centers on something precise that can be attended to, not 
 
 Attention policies are formatted in a certain way.
 
-- They start with the words "I recognize a good [<X>] by", where X is the singular form of the context.
+- They start with the words "I recognize a good way to act when [<X>] by", where X is the singular form of the context.
 - They continue with an all-caps plural noun that's a kind of thing someone could choose to attend to** ("MOMENTS", "SENSATIONS", "PEOPLE", etc), followed by a prepositional phrase that modifies the head noun and provides more detail. For instance: “OPPORTUNITIES for my child to discover their capacity amidst emotional turmoil.” There is no extra formatting or punctuation.
 
 For a context of "a collective choice is being made", some intermediate form attention policies might be:

@@ -163,6 +163,37 @@ You can ask the user how they wish they themselves could live, if only these nor
 3. **Use general words.** For instance, prefer "strangers" to "customers" when either would work. Prefer "objects" to "trees".
 4. **Be precise.** Remove vague or abstract language. Don't use the word "meaningful" itself, or synonyms like "deep". Instead, say more precisely what's meaningful about attending to the thing.`;
 
+export const findExistingDuplicateValuePrompt = `# Deduplicate Attention Policies
+
+You are given a value, and another set of canonical values. A value represents a source of meaning through a set of attention policies. Determine if the value you are given is already represented by one of the existing canonical values.
+
+
+### Sources of meaning
+
+A source of meaning is a set of attention policies that fit together into a way of living that is important to someone when choosing a certain thing. Something where just attending to what is in the policies and making good choices based on them is itself how they want to live.
+
+A source of meaning doesn't contain policies for everything someone attends to when they make the given kind of choice - it contains just the policies they find meaningful to attend to.
+
+### Attention Policies
+
+Attention policies list what a person pays attention to when they do a kind of choice. Each attention policy centers on something precise that can be attended to, not a vague concept.
+
+# Guidelines for Determining Equivalent Sources of Meaning
+
+Two or more sets of attention policies represent the same source of meaning if and only if they meet ALL of the following criteria:
+
+1. Completeness: A person who articulated one set would feel that the other set(s) fully capture what they cared about.
+
+2. Practical Equivalence: Someone instructed to follow one set of policies would, in practice, pay attention to the same things as someone following the other set(s).
+
+3. Design Alignment: An experience designed to enable the policies in one set would inherently serve the policies of the other set(s) as well.
+
+4. Mutual Correction: Any differences between the sets would be recognized as oversights or mistakes by proponents of either set. Both sets would be updated to align with each other if such differences were identified.
+
+5. Granularity Consistency: The sets are formulated using approximately the same level of detail and specificity. While exact wording may differ, the overall scope and depth of the policies are comparable.
+
+Important: All five criteria must be satisfied for sets to be considered equivalent. If any criterion is not met, the sets represent distinct sources of meaning.`;
+
 export const bestValuesCardPrompt = `You will be provided with a list of "values card", all representing the same source of meaning (see definition below). Each values card has an "id" and a list of "attention policies", describing what someone with the value pays attention to. Your task is to return the "id" of the "values card" that is best formulated according to the guidelines below.
 
 ## Sources of Meaning Definition
@@ -179,6 +210,14 @@ A "source of meaning" is a way of living that is important to someone. Something
 7. The title should be pithy, and unlikely to be confused with other similar sources of meaning.
 8. The values card should be written from the perspective of how one should respond to the situation in the first message. They should reflect the user's sources of meaning, not yours.`;
 
+export const findExistingDuplicateContextPrompt = `# Find Duplicate Context
+
+You will be given a term, and another long list of terms.
+
+Your task is to find if the term is directly a synonym of one of the other terms from the long list. Terms (X and Y) can be said to be synonyms if choosing an X, or choosing a way to act when X, is equivalent to choosing a Y, or choosing a way to act when Y.
+
+Return a synonym term from the list, if one such term exist.`;
+
 export const generateValuePromptContext = `You'll receive a question, and one or several "contexts" that describe aspects of a situation with moral valence. Your job is to develop a set of attention policies related to the question, informed by the contexts.
 
 ## Manual of Attention Policies
@@ -193,7 +232,7 @@ Each attention policy centers on something precise that can be attended to, not 
 
 Attention policies are formatted in a certain way.
 
-- They start with the words "I recognize a good [<X>] by", where X is the singular form of the context.
+- They start with the words "I recognize a good way to act when [<X>] by", where X is the singular form of the context.
 - They continue with an all-caps plural noun that's a kind of thing someone could choose to attend to** ("MOMENTS", "SENSATIONS", "PEOPLE", etc), followed by a prepositional phrase that modifies the head noun and provides more detail. For instance: “OPPORTUNITIES for my child to discover their capacity amidst emotional turmoil.” There is no extra formatting or punctuation.
 
 For a context of "a collective choice is being made", some intermediate form attention policies might be:
@@ -324,37 +363,6 @@ You can ask the user how they wish they themselves could live, if only these nor
 2. **Write from the perspective of the actor.** These polices can be read as instructions to the person who wants to appreciate something according to this source of meaning. ("SENSATIONS that point to misgivings I have about the current path").
 3. **Use general words.** For instance, prefer "strangers" to "customers" when either would work. Prefer "objects" to "trees".
 4. **Be precise.** Remove vague or abstract language. Don't use the word "meaningful" itself, or synonyms like "deep". Instead, say more precisely what's meaningful about attending to the thing.`;
-
-export const findExistingDuplicatePrompt = `# Deduplicate Attention Policies
-
-You are given a value, and another set of canonical values. A value represents a source of meaning through a set of attention policies. Determine if the value you are given is already represented by one of the existing canonical values.
-
-
-### Sources of meaning
-
-A source of meaning is a set of attention policies that fit together into a way of living that is important to someone when choosing a certain thing. Something where just attending to what is in the policies and making good choices based on them is itself how they want to live.
-
-A source of meaning doesn't contain policies for everything someone attends to when they make the given kind of choice - it contains just the policies they find meaningful to attend to.
-
-### Attention Policies
-
-Attention policies list what a person pays attention to when they do a kind of choice. Each attention policy centers on something precise that can be attended to, not a vague concept.
-
-# Guidelines for Determining Equivalent Sources of Meaning
-
-Two or more sets of attention policies represent the same source of meaning if and only if they meet ALL of the following criteria:
-
-1. Completeness: A person who articulated one set would feel that the other set(s) fully capture what they cared about.
-
-2. Practical Equivalence: Someone instructed to follow one set of policies would, in practice, pay attention to the same things as someone following the other set(s).
-
-3. Design Alignment: An experience designed to enable the policies in one set would inherently serve the policies of the other set(s) as well.
-
-4. Mutual Correction: Any differences between the sets would be recognized as oversights or mistakes by proponents of either set. Both sets would be updated to align with each other if such differences were identified.
-
-5. Granularity Consistency: The sets are formulated using approximately the same level of detail and specificity. While exact wording may differ, the overall scope and depth of the policies are comparable.
-
-Important: All five criteria must be satisfied for sets to be considered equivalent. If any criterion is not met, the sets represent distinct sources of meaning.`;
 
 export const deduplicateValuesPrompt = `# Deduplicate Attention Policies
 
