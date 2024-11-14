@@ -1,15 +1,16 @@
 import { DBSCAN } from "density-clustering"
 import { genObj } from "./ai"
 import { embedTexts, embedValue } from "./embedding"
-import { cosineDistance, readPrompt } from "../utils"
+import { cosineDistance } from "../utils"
 import { z } from "zod"
+import {
+  deduplicateContextsPrompt,
+  deduplicateValuesPrompt,
+  bestValuesCardPrompt,
+  findExistingDuplicateContextPrompt,
+  findExistingDuplicateValuePrompt,
+} from "../prompts"
 import { Value } from "../types"
-
-const deduplicateContextsPrompt = readPrompt('deduplicate-contexts-prompt.md')
-const deduplicateValuesPrompt = readPrompt('deduplicate-values-prompt.md')
-const bestValuesCardPrompt = readPrompt('best-values-card-prompt.md')
-const findExistingDuplicateContextPrompt = readPrompt('find-existing-duplicate-context-prompt.md')
-const findExistingDuplicateValuePrompt = readPrompt('find-existing-duplicate-value-prompt.md')
 
 /**
  * Finds an existing duplicate value from a list of candidates using an AI prompt.

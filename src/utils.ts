@@ -1,7 +1,3 @@
-export async function readPrompt(fileName: string) {
-  return (await import(`../src/prompts/${fileName}?raw`)).default
-}
-
 export const cosineDistance = (vecA: number[], vecB: number[]) => {
   let dotProduct = 0.0
   let normA = 0.0
