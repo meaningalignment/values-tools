@@ -76,7 +76,7 @@ const GenerateUpgradesSchema = z.object({
   ),
 })
 
-export async function generateValueChoiceType(
+export async function generateValueFromChoiceType(
   q: string,
   choiceType: string,
   options: GenerateValueOptions = {}
@@ -118,7 +118,7 @@ type GenerateValueOptions = {
   includeTitle?: boolean
 }
 
-export async function generateValueContext(
+export async function generateValueFromContext(
   q: string,
   context: string | string[],
   options: GenerateValueOptions = {}

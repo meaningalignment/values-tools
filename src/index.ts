@@ -9,8 +9,8 @@ export {
   deduplicateValues,
 } from "./services/deduplicate"
 export {
-  generateValueChoiceType,
-  generateValueContext,
+  generateValueFromChoiceType,
+  generateValueFromContext,
   generateUpgrades,
 } from "./services/generate"
 export { embedValue, embedText, embedTexts } from "./services/embedding"
