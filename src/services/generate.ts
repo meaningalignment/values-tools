@@ -1,11 +1,11 @@
 import { z } from "zod"
 import { genObj } from "./ai"
-import { generateUpgradesPrompt } from "../prompts"
+import { readPrompt } from "../utils"
 import { Upgrade, Value } from "../types"
-import {
-  generateValuePromptChoiceType,
-  generateValuePromptContext,
-} from "../prompts"
+
+const generateUpgradesPrompt = readPrompt('generate-upgrades-prompt.md')
+const generateValuePromptChoiceType = readPrompt('generate-value-prompt-choice-type.md')
+const generateValuePromptContext = readPrompt('generate-value-prompt-context.md')
 
 const GenerateValueSchema = z.object({
   refusal: z

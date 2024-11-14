@@ -1,7 +1,9 @@
 import { z } from "zod"
 import { genObj } from "./ai"
-import { generateUpgradesPrompt } from "../prompts"
+import { readPrompt } from "../utils"
 import { Value } from "../types"
+
+const generateUpgradesPrompt = readPrompt('generate-upgrades-prompt.md')
 
 export interface Upgrade {
   a_id: number

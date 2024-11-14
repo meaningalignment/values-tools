@@ -5,9 +5,7 @@
   "main": "src/index.ts",
   "type": "module",
   "scripts": {
-    "build": "bun build ./src/index.ts --outdir ./dist",
-    "build:prompts": "bun run scripts/build-prompts.ts",
-    "prebuild": "bun run build:prompts"
+    "build": "bun build ./src/index.ts --outdir ./dist"
   },
   "keywords": [
     "values",
