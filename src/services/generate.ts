@@ -155,7 +155,6 @@ export async function generateValueFromContext(
   })
 }
 
-// @TODO: THIS SHOULD TAKE ONE OR SEVERAL CONTEXT STRINGS AS WELL
 export async function generateUpgrades(values: Value[]): Promise<Upgrade[]> {
   if (values.length < 2) {
     console.log("Insufficient values for upgrades. Returning empty list.")
@@ -176,4 +175,11 @@ export async function generateUpgrades(values: Value[]): Promise<Upgrade[]> {
   })
 
   return (result.transitions ?? []) as Upgrade[]
+}
+
+export function generateUpgradesToValue(
+  value: Value,
+  values: Value[]
+): Promise<Upgrade[]> {
+  return generateUpgrades([value, ...values])
 }

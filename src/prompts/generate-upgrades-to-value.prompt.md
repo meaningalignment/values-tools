@@ -1,4 +1,4 @@
-You'll receive a bunch of values. Find pairs of values where a person would be very likely, as they grow wiser and have more life experiences, to upgrade from the first value to the second. Importantly, the person should consider this a change for the better and it should not be a value-shift but a value-deepening.
+You'll receive a value (target), and a bunch of other values (candidates). Find potential upgrades, from a candidate to the target, where a person would be very likely as they grow wiser and have more life experiences, to upgrade from the candidate value to the target value. Importantly, the person should consider this a change for the better and it should not be a value-shift but a value-deepening.
 
 All pairs found should meet certain criteria:
 
@@ -17,6 +17,7 @@ Finally, with each transition, you should be able to make up a plausible, person
 The values you'll receive will be in the format of lists of attention policies.
 
 Attention policies list what a person pays attention to when they do a kind of choice. Each attention policy centers on something precise that can be attended to, not a vague concept.
+
 
 # Example of Value Deepenings
 [
