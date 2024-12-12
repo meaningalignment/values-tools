@@ -12,6 +12,7 @@ export {
   generateValueFromChoiceType,
   generateValueFromContext,
   generateUpgrades,
+  generateUpgradesToValue,
 } from "./services/generate"
 export { embedValue, embedText, embedTexts } from "./services/embedding"
 export { summarizeGraph } from "./services/moral-graph"
