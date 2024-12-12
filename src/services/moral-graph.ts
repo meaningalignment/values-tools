@@ -40,7 +40,7 @@ function initializePageRank(nodes: NodeId[]): PageRank {
  * @param iterations - The number of iterations for PageRank calculation (default: 100).
  * @returns An object with calculated PageRank values for each node.
  */
-function calculatePageRankWeighted(
+export function calculatePageRank(
   edges: MoralGraphEdge[],
   dampingFactor = 0.85,
   iterations = 100
@@ -79,43 +79,27 @@ function calculatePageRankWeighted(
   return pageRank
 }
 
-/**
- * Calculates the standard PageRank for a set of edges.
- * @param edges - An array of MoralGraphEdge objects.
- * @param dampingFactor - The damping factor for PageRank calculation (default: 0.85).
- * @param iterations - The number of iterations for PageRank calculation (default: 100).
- * @returns An object with calculated PageRank values for each node.
- */
-function calculatePageRank(
-  edges: MoralGraphEdge[],
-  dampingFactor = 0.85,
-  iterations = 100
-): PageRank {
-  const nodes = Array.from(
-    new Set(edges.flatMap((edge) => [edge.sourceValueId, edge.wiserValueId]))
-  )
-  let pageRank = initializePageRank(nodes)
+export const usPoliticalAffiliationSummarizer = (
+  demographics: {
+    usPoliticalAffiliation?: string | null
+  }[]
+) => {
+  const usPoliticalAffiliationCounts = demographics
+    .map((d) => d.usPoliticalAffiliation)
+    .filter((affiliation): affiliation is string => !!affiliation)
+    .reduce((counts, affiliation) => {
+      counts[affiliation] = (counts[affiliation] || 0) + 1
+      return counts
+    }, {} as Record<string, number>)
 
-  for (let i = 0; i < iterations; i++) {
-    const newRank: PageRank = {}
-    nodes.forEach(
-      (node) => (newRank[node] = (1 - dampingFactor) / nodes.length)
-    )
+  const mainUsPoliticalAffiliation = Object.entries(
+    usPoliticalAffiliationCounts
+  ).sort(([, a], [, b]) => b - a)[0]?.[0]
 
-    edges.forEach((edge) => {
-      const outgoingEdges = edges.filter(
-        (e) => e.sourceValueId === edge.sourceValueId
-      ).length
-      if (outgoingEdges > 0) {
-        newRank[edge.wiserValueId] +=
-          (dampingFactor * pageRank[edge.sourceValueId]) / outgoingEdges
-      }
-    })
-
-    pageRank = newRank
+  return {
+    mainUsPoliticalAffiliation,
+    usPoliticalAffiliationCounts,
   }
-
-  return pageRank
 }
 
 type Key = `${number},${number}`
@@ -131,6 +115,7 @@ class PairMap {
         sourceValueId: a,
         wiserValueId: b,
         contexts: [],
+        demographics: [],
         counts: {
           markedWiser: 0,
           markedNotWiser: 0,
@@ -144,7 +129,11 @@ class PairMap {
   }
 }
 
-type RawEdgeCount = Omit<MoralGraph["edges"][0], "summary">
+type RawEdgeCount = Omit<MoralGraph["edges"][0], "summary"> & {
+  demographics: any[]
+}
+
+type DemographicsSummarizer = (demographics: any[]) => any
 
 /**
  * Options for summarizing the moral graph.
@@ -154,6 +143,8 @@ export interface Options {
   includePageRank?: boolean
   includeContexts?: boolean
   markedWiserThreshold?: number
+  includeDemographics?: boolean
+  demographicsSummarizer?: DemographicsSummarizer
 }
 
 /**
@@ -165,7 +156,10 @@ export interface Options {
  */
 export async function summarizeGraph(
   values: MoralGraphValue[],
-  edges: (Edge & { type: "upgrade" | "no_upgrade" | "not_sure" })[],
+  edges: (Edge & {
+    type: "upgrade" | "no_upgrade" | "not_sure"
+    demographics?: any
+  })[],
   options: Options = {}
 ): Promise<MoralGraph> {
   const pairs = new PairMap()
@@ -177,6 +171,7 @@ export async function summarizeGraph(
     if (edge.type === "upgrade") existing.counts.markedWiser++
     if (edge.type === "no_upgrade") existing.counts.markedNotWiser++
     if (edge.type === "not_sure") existing.counts.markedUnsure++
+    if (edge.demographics) existing.demographics.push(edge.demographics)
   }
 
   // Do the opposite.
@@ -198,7 +193,19 @@ export async function summarizeGraph(
     const wiserLikelihood =
       (edge.counts.markedWiser - edge.counts.markedLessWise) / total
     const entropy = calculateEntropy(edge.counts)
-    return { ...edge, contexts, summary: { wiserLikelihood, entropy } }
+
+    const summary: any = { wiserLikelihood, entropy }
+
+    // Add demographics summary if requested
+    if (options.includeDemographics) {
+      if (options.demographicsSummarizer) {
+        summary.demographics = options.demographicsSummarizer(edge.demographics)
+      } else {
+        summary.demographics = edge.demographics
+      }
+    }
+
+    return { ...edge, contexts, summary }
   })
 
   // Eliminate edges with low wiserLikelihood, low signal, or no consensus.
@@ -234,7 +241,7 @@ export async function summarizeGraph(
   }
 
   if (options.includePageRank) {
-    const pageRank = calculatePageRankWeighted(trimmedEdges)
+    const pageRank = calculatePageRank(trimmedEdges)
 
     for (const node of values) {
       node.pageRank = pageRank[node.id]
@@ -247,5 +254,3 @@ export async function summarizeGraph(
     ...extra,
   }
 }
-
-export { calculatePageRank, calculatePageRankWeighted }
