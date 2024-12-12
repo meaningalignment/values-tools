@@ -155,31 +155,68 @@ export async function generateValueFromContext(
   })
 }
 
-export async function generateUpgrades(values: Value[]): Promise<Upgrade[]> {
+export async function generateUpgrades(
+  values: Value[],
+  context?: string
+): Promise<Upgrade[]> {
   if (values.length < 2) {
-    console.log("Insufficient values for upgrades. Returning empty list.")
+    console.log("Not enough values.")
     return []
   }
 
+  const data = {
+    values: values.map((v) => ({
+      id: v.id,
+      policies: v.policies,
+    })),
+  }
+
+  if (context) data["context"] = context
+
   const result = await genObj({
     prompt: generateUpgradesPrompt,
-    data: {
-      values: values.map((v) => ({
-        id: v.id,
-        description: v.description,
-        policies: v.policies,
-      })),
-    },
     schema: GenerateUpgradesSchema,
     temperature: 0.3,
+    data,
   })
 
   return (result.transitions ?? []) as Upgrade[]
 }
 
-export function generateUpgradesToValue(
-  value: Value,
-  values: Value[]
+export async function generateUpgradesToValue(
+  target: Value,
+  candidates: Value[],
+  context?: string
 ): Promise<Upgrade[]> {
-  return generateUpgrades([value, ...values])
+  const data = {
+    targetValue: {
+      id: target.id,
+      policies: target.policies,
+    },
+    candidateValues: candidates.map((v) => ({
+      id: v.id,
+      policies: v.policies,
+    })),
+  }
+
+  if (context) data["context"] = context
+
+  const result = await genObj({
+    schema: GenerateUpgradesSchema.extend({
+      transitions: GenerateUpgradesSchema.shape.transitions.element
+        .extend({
+          b_id: z
+            .number()
+            .describe(
+              "The id of the value they have now. Must always be the target value."
+            ),
+        })
+        .array(),
+    }),
+    prompt: generateUpgradesPrompt,
+    temperature: 0.3,
+    data,
+  })
+
+  return (result.transitions ?? []) as Upgrade[]
 }
