@@ -13,6 +13,77 @@ import {
 import { Value } from "../types"
 
 /**
+ * Clusters an array of values using DBSCAN.
+ * @param values - An array of Value objects to cluster.
+ * @param neighborhoodRadius - The neighborhood radius for DBSCAN clustering (default: 0.3).
+ * @param minPointsPerCluster - The minimum number of points per cluster (default: 5).
+ * @param distanceFunction - The distance function to use for clustering (default: cosineDistance).
+ * @returns A Promise that resolves to an array of arrays, where each inner array represents a cluster of similar values.
+ */
+export async function clusterValues<V extends Value>(
+  values: V[],
+  neighborhoodRadius: number = 0.3,
+  minPointsPerCluster: number = 5,
+  distanceFunction: (p: number[], q: number[]) => number = cosineDistance
+): Promise<V[][]> {
+  const embeddings = await Promise.all(
+    values.map((value) => {
+      if (value.embedding) {
+        return value.embedding
+      }
+
+      return embedValue(value)
+    })
+  )
+  const dbscan = new DBSCAN()
+  const dbscanClusters = dbscan
+    .run(embeddings, neighborhoodRadius, minPointsPerCluster, distanceFunction)
+    .map((cluster: number[]) => cluster.map((i) => values[i])) as V[][]
+
+  const clusteredValues = new Set(dbscanClusters.flat().map((v) => v.id))
+  const unclusteredValues = values.filter((v) => !clusteredValues.has(v.id))
+  if (unclusteredValues.length > 0) {
+    dbscanClusters.push(unclusteredValues)
+  }
+
+  return dbscanClusters
+}
+
+/**
+ * Clusters an array of context strings using DBSCAN.
+ * @param contexts - An array of context strings to cluster.
+ * @param neighborhoodRadius - The neighborhood radius for DBSCAN clustering (default: 0.3).
+ * @param minPointsPerCluster - The minimum number of points per cluster (default: 5).
+ * @param distanceFunction - The distance function to use for clustering (default: cosineDistance).
+ * @returns A Promise that resolves to an array of arrays, where each inner array represents a cluster of similar context strings.
+ */
+export async function clusterContexts(
+  contexts: string[],
+  neighborhoodRadius: number = 0.3,
+  minPointsPerCluster: number = 5,
+  distanceFunction: (p: number[], q: number[]) => number = cosineDistance
+): Promise<string[][]> {
+  const uniqueContexts = Array.from(new Set(contexts))
+  const embeddings = await embedTexts(uniqueContexts)
+
+  const dbscan = new DBSCAN()
+  const dbscanClusters = dbscan
+    .run(embeddings, neighborhoodRadius, minPointsPerCluster, distanceFunction)
+    .map((cluster: any) => cluster.map((i: any) => uniqueContexts[i]))
+
+  const clusteredValues = new Set(dbscanClusters.flat())
+  const unclusteredValues = uniqueContexts.filter(
+    (value) => !clusteredValues.has(value)
+  )
+
+  if (unclusteredValues.length > 0) {
+    dbscanClusters.push(unclusteredValues)
+  }
+
+  return dbscanClusters
+}
+
+/**
  * Finds an existing duplicate value from a list of candidates using an AI prompt.
  * @param value - The value to find a duplicate for.
  * @param candidates - An array of candidate values to compare against.
@@ -125,30 +196,6 @@ export async function deduplicateValues<V extends Value>(
     return dbscanClusters.map(dedupeValuesWithPrompt)
   }
 
-  async function clusterValues(values: V[]): Promise<V[][]> {
-    const embeddings = await Promise.all(
-      values.map((value) => {
-        if (value.embedding) {
-          return value.embedding
-        }
-
-        return embedValue(value)
-      })
-    )
-    const dbscan = new DBSCAN()
-    const dbscanClusters = dbscan
-      .run(embeddings, 0.3, 5, cosineDistance)
-      .map((cluster: number[]) => cluster.map((i) => values[i])) as V[][]
-
-    const clusteredValues = new Set(dbscanClusters.flat().map((v) => v.id))
-    const unclusteredValues = values.filter((v) => !clusteredValues.has(v.id))
-    if (unclusteredValues.length > 0) {
-      dbscanClusters.push(unclusteredValues)
-    }
-
-    return dbscanClusters
-  }
-
   function ensureAllValuesExist(
     dedupedValues: V[][],
     originalValues: V[]
@@ -229,27 +276,6 @@ export async function deduplicateContexts(
       (context) => !allContexts.has(context)
     )
     return [...dedupedContexts, ...missingContexts.map((context) => [context])]
-  }
-
-  async function clusterContexts(contexts: string[]): Promise<string[][]> {
-    const uniqueContexts = Array.from(new Set(contexts))
-    const embeddings = await embedTexts(uniqueContexts)
-
-    const dbscan = new DBSCAN()
-    const dbscanClusters = dbscan
-      .run(embeddings, 0.3, 5, cosineDistance)
-      .map((cluster: any) => cluster.map((i: any) => uniqueContexts[i]))
-
-    const clusteredValues = new Set(dbscanClusters.flat())
-    const unclusteredValues = uniqueContexts.filter(
-      (value) => !clusteredValues.has(value)
-    )
-
-    if (unclusteredValues.length > 0) {
-      dbscanClusters.push(unclusteredValues)
-    }
-
-    return dbscanClusters
   }
 
   //
