@@ -157,7 +157,8 @@ export async function generateValueFromContext(
 
 export async function generateUpgrades(
   values: Value[],
-  context?: string
+  context?: string,
+  theme?: string
 ): Promise<Upgrade[]> {
   if (values.length < 2) {
     console.log("Not enough values.")
@@ -172,6 +173,7 @@ export async function generateUpgrades(
   }
 
   if (context) data["context"] = context
+  if (theme) data["theme"] = theme
 
   const result = await genObj({
     prompt: generateUpgradesPrompt,

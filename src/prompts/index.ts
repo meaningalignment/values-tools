@@ -275,7 +275,11 @@ Attention policies list what a person pays attention to when they do a kind of c
     ],
     likelihood_score: "A",
   },
-]`;
+]
+
+# Important Note on Directionality
+
+The directionality MUST always be from candidate(s) to target, NEVER the other way around. It may be harder to view canidate -> target rather than target -> canidate as a value deepening, but the latter is not allowed. In that case, try your best at imagining the wisest interpretation of the target value, and proceed with the task.`;
 
 export const findExistingDuplicateValuePrompt = `# Deduplicate Attention Policies
 
