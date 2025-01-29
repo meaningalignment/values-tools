@@ -76,6 +76,14 @@ const GenerateUpgradesSchema = z.object({
   ),
 })
 
+const formatUpgrade = (upgrade: Upgrade): Upgrade => ({
+  ...upgrade,
+  story: upgrade.story
+    .split("\n")
+    .map((line) => line.trim())
+    .join("\n"),
+})
+
 export async function generateValueFromChoiceType(
   q: string,
   choiceType: string,
@@ -182,7 +190,7 @@ export async function generateUpgrades(
     data,
   })
 
-  return (result.transitions ?? []) as Upgrade[]
+  return (result.transitions ?? []).map((u) => formatUpgrade(u as Upgrade))
 }
 
 export async function generateUpgradesToValue(
@@ -220,5 +228,5 @@ export async function generateUpgradesToValue(
     data,
   })
 
-  return (result.transitions ?? []) as Upgrade[]
+  return (result.transitions ?? []).map((u) => formatUpgrade(u as Upgrade))
 }

@@ -92,13 +92,19 @@ export const usPoliticalAffiliationSummarizer = (
       return counts
     }, {} as Record<string, number>)
 
+  // Only consider Democrat/Republican for main affiliation
   const mainUsPoliticalAffiliation = Object.entries(
     usPoliticalAffiliationCounts
-  ).sort(([, a], [, b]) => b - a)[0]?.[0]
+  )
+    .filter(
+      ([affiliation]) =>
+        affiliation === "Democrat" || affiliation === "Republican"
+    )
+    .sort(([, a], [, b]) => b - a)[0]?.[0]
 
   return {
     mainUsPoliticalAffiliation,
-    usPoliticalAffiliationCounts,
+    usPoliticalAffiliationCounts, // Keep all affiliations in the counts
   }
 }
 
