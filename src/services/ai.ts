@@ -60,6 +60,7 @@ export async function genObj<T extends ZodSchema>({
   model,
   temperature,
   useCacheIfAvailable = true,
+  mode = "json",
 }: {
   prompt: string
   data: Record<string, any>
@@ -67,6 +68,7 @@ export async function genObj<T extends ZodSchema>({
   temperature?: number
   model?: string
   useCacheIfAvailable?: boolean
+  mode?: "json" | "tool"
 }): Promise<z.infer<T>> {
   const config = getValuesToolsConfig()
   const renderedData = Object.entries(data)
@@ -96,7 +98,7 @@ export async function genObj<T extends ZodSchema>({
     system: prompt,
     messages: [{ role: "user", content: renderedData }],
     temperature: finalTemperature,
-    mode: "auto",
+    mode,
   })
 
   if (useCacheIfAvailable && config.cache) {
