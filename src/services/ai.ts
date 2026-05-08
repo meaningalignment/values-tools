@@ -1,4 +1,4 @@
-import { embedMany, generateObject, generateText, type CoreMessage } from "ai"
+import { embedMany, generateObject, generateText, type ModelMessage } from "ai"
 import { anthropic } from "@ai-sdk/anthropic"
 import { openai } from "@ai-sdk/openai"
 import { z, ZodSchema } from "zod"
@@ -178,7 +178,7 @@ export async function genText({
 /**
  * Generates text based on a series of messages and an optional system prompt.
  * @param {Object} options - The options for generating the text.
- * @param {CoreMessage[]} options.messages - An array of messages to process.
+ * @param {ModelMessage[]} options.messages - An array of messages to process.
  * @param {string} [options.systemPrompt] - The system prompt for the AI model (optional).
  * @param {string} [options.model] - The AI model to use (optional, defaults to config.defaultModel).
  * @param {number} [options.temperature] - The temperature for the AI generation (optional, defaults to config.defaultTemperature).
@@ -192,7 +192,7 @@ export async function genTextMessages({
   temperature,
   useCacheIfAvailable = true,
 }: {
-  messages: CoreMessage[]
+  messages: ModelMessage[]
   systemPrompt?: string
   model?: string
   temperature?: number

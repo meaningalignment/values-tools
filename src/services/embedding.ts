@@ -20,8 +20,9 @@ export async function embedValue(value: Value): Promise<Embedding> {
  */
 export async function embedText(text: string): Promise<Embedding> {
   const result = await embed({
-    model: openai.embedding("text-embedding-3-large", { dimensions: 1536 }),
+    model: openai.embedding("text-embedding-3-large"),
     value: text,
+    providerOptions: { openai: { dimensions: 1536 } },
   })
 
   return result.embedding as Embedding
@@ -34,8 +35,9 @@ export async function embedText(text: string): Promise<Embedding> {
  */
 export async function embedTexts(texts: string[]): Promise<number[][]> {
   const result = await embedMany({
-    model: openai.embedding("text-embedding-3-large", { dimensions: 1536 }),
+    model: openai.embedding("text-embedding-3-large"),
     values: texts,
+    providerOptions: { openai: { dimensions: 1536 } },
   })
 
   return result.embeddings as Embedding[]
